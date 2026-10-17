@@ -334,7 +334,7 @@ loop do
 
       if method == "GET" && (path == "/" || path == "/index.html")
         ctype = "text/html; charset=utf-8"
-        resp_body = File.read(File.join(__dir__, "app", "static", "index.html"))
+        resp_body = File.read(File.join(Dir.pwd, "app", "static", "index.html"))
       elsif method == "GET" && path == "/api/health"
         resp_body = JSON.generate({
           "status" => "healthy",
