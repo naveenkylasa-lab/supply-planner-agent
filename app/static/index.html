@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supply Planner Agent — Enterprise S&OP & MRP Control Tower</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top left, #0f172a 0%, #020617 70%);
+      color: #e2e8f0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.75);
+    }
+    .step-active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+    }
+    .step-done {
+      border-color: #10b981;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-30 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-slate-950 shadow-lg shadow-cyan-500/20">
+          S&OP
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Enterprise Supply Planner &amp; MRP Control Tower
+            <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-medium">
+              5-Agent LangGraph + OpenTelemetry
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            ABC/XYZ Stratification • Statistical Safety Stock &amp; ROP • Dual-Source Capacity • MRP Lot-Sizing &amp; HITL Governance
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs">
+        <span id="healthBadge" class="px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          ● System Online
+        </span>
+        <button onclick="openSchemaModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          Tool JSON Schemas (5)
+        </button>
+        <button onclick="refreshOtelSpans()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition">
+          Live OTel Spans
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 pt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Left Column: SKU Input & Conversational S&OP Assistant -->
+    <div class="lg:col-span-4 space-y-6">
+      <!-- Preset Selector & Packet Builder -->
+      <section class="glass-card rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-cyan-400">
+            1. ERP SKU Planning Packet
+          </h2>
+          <span class="text-[11px] text-slate-400">Preset Scenarios</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="loadPreset('sku_a_critical_asic')" class="text-left p-2.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-700/50 transition">
+            <div class="text-xs font-bold text-rose-300">Class A • Critical ASIC</div>
+            <div class="text-[11px] text-slate-400 truncate">7nm CoWoS AI Module (HITL)</div>
+          </button>
+          <button onclick="loadPreset('sku_b_industrial_sensor')" class="text-left p-2.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-700/50 transition">
+            <div class="text-xs font-bold text-amber-300">Class B • LiDAR Array</div>
+            <div class="text-[11px] text-slate-400 truncate">96% Cap • Dual-Source Split</div>
+          </button>
+          <button onclick="loadPreset('sku_c_power_supply')" class="text-left p-2.5 rounded-xl bg-sky-950/40 hover:bg-sky-900/50 border border-sky-700/50 transition">
+            <div class="text-xs font-bold text-sky-300">Class C • 3000W PSU</div>
+            <div class="text-[11px] text-slate-400 truncate">Steady Nearshore Lane</div>
+          </button>
+          <button onclick="loadPreset('sku_d_packaging_tray')" class="text-left p-2.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-700/50 transition">
+            <div class="text-xs font-bold text-emerald-300">Class D • ESD Tray</div>
+            <div class="text-[11px] text-slate-400 truncate">High Cover • Auto VMI</div>
+          </button>
+        </div>
+
+        <div class="space-y-3 pt-2 border-t border-slate-800 text-xs">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">SKU ID</label>
+              <input id="f_sku_id" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Plant Code</label>
+              <input id="f_plant_code" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 mb-1">SKU Description</label>
+            <input id="f_sku_name" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">On-Hand</label>
+              <input id="f_on_hand" type="number" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Allocated</label>
+              <input id="f_allocated" type="number" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Pipeline (PO+Transit)</label>
+              <input id="f_pipeline" type="number" readonly class="w-full px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">Wk Demand Mean</label>
+              <input id="f_demand_mean" type="number" step="10" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Wk StdDev (σ)</label>
+              <input id="f_demand_std" type="number" step="5" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Service Level</label>
+              <input id="f_service_level" type="number" step="0.01" min="0.80" max="0.999" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">Lead Time (Days)</label>
+              <input id="f_lead_time" type="number" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Supplier OTIF %</label>
+              <input id="f_otif" type="number" step="0.5" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Working Cap ($)</label>
+              <input id="f_budget" type="number" step="10000" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 mb-1">Raw ERP Exception Notes (PII Auto-Redacted)</label>
+            <textarea id="f_erp_notes" rows="3" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs"></textarea>
+          </div>
+
+          <button id="runPlanBtn" onclick="executeSupplyPlan()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 transition">
+            ▶ Run 5-Agent S&amp;OP Replenishment Pipeline
+          </button>
+        </div>
+      </section>
+
+      <!-- Conversational S&OP Assistant -->
+      <section class="glass-card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-cyan-400">
+            2. Conversational S&amp;OP Support Agent
+          </h2>
+          <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">Intent Router</span>
+        </div>
+        <div id="chatBox" class="h-56 overflow-y-auto space-y-2.5 p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs">
+          <div class="p-2.5 rounded-lg bg-slate-900 text-slate-300">
+            <strong class="text-cyan-400">S&amp;OP Support Agent:</strong> Ask me about our Statistical Safety Stock &amp; Reorder Point formula (Article II), ABC/XYZ stratification (Article I), or Working Capital &amp; HITL governance (Articles IV–V).
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <input id="chatInput" type="text" placeholder="e.g., How is safety stock calculated under Article II?" class="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white" onkeydown="if(event.key==='Enter') sendChat()" />
+          <button onclick="sendChat()" class="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold text-xs">
+            Ask
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column: 5-Phase Execution Stepper, KPI Cards, MRP Split & Telemetry -->
+    <div class="lg:col-span-8 space-y-6">
+      <!-- 5-Agent Pipeline Stepper -->
+      <section class="glass-card rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-cyan-400">
+            Sequential 5-Agent Supply Chain Pipeline
+          </h2>
+          <span id="traceBadge" class="text-[11px] font-mono text-slate-400">W3C Trace: —</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2.5 text-xs">
+          <div id="step1" class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Phase 1 • Flash</div>
+            <div class="font-semibold text-white mt-0.5">Inventory Triage</div>
+            <div id="step1Status" class="text-[11px] text-slate-500 mt-1">Idle</div>
+          </div>
+          <div id="step2" class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Phase 2 • Pro</div>
+            <div class="font-semibold text-white mt-0.5">Safety Stock &amp; ROP</div>
+            <div id="step2Status" class="text-[11px] text-slate-500 mt-1">Idle</div>
+          </div>
+          <div id="step3" class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Phase 3 • Pro</div>
+            <div class="font-semibold text-white mt-0.5">Supplier Capacity</div>
+            <div id="step3Status" class="text-[11px] text-slate-500 mt-1">Idle</div>
+          </div>
+          <div id="step4" class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Phase 4 • Pro</div>
+            <div class="font-semibold text-white mt-0.5">MRP PO Optimizer</div>
+            <div id="step4Status" class="text-[11px] text-slate-500 mt-1">Idle</div>
+          </div>
+          <div id="step5" class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Phase 5 • Pro</div>
+            <div class="font-semibold text-white mt-0.5">Master S&amp;OP Gate</div>
+            <div id="step5Status" class="text-[11px] text-slate-500 mt-1">Idle</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Executive S&OP Decision Banner -->
+      <section id="decisionBanner" class="glass-card rounded-2xl p-6 border-l-4 border-l-cyan-500 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span id="tierBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold">
+              SELECT A PRESET SKU TO BEGIN
+            </span>
+            <h3 id="decisionTitle" class="text-xl font-bold text-white mt-1">
+              Ready for Multi-Agent MRP &amp; S&amp;OP Evaluation
+            </h3>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-slate-400">Composite Supply Risk</div>
+            <div id="compositeScoreDisplay" class="text-2xl font-extrabold text-cyan-400">— / 100</div>
+          </div>
+        </div>
+
+        <!-- Quantitative MRP & Safety Stock KPI Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[11px] text-slate-400">Safety Stock / ROP</div>
+            <div id="kpiSafetyStock" class="text-base font-bold text-white mt-0.5">—</div>
+            <div id="kpiRop" class="text-[11px] text-cyan-400">ROP: —</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[11px] text-slate-400">Recommended Total PO</div>
+            <div id="kpiTotalOrder" class="text-base font-bold text-emerald-400 mt-0.5">—</div>
+            <div id="kpiOrderSplit" class="text-[11px] text-slate-400">Primary / Backup: —</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[11px] text-slate-400">Expedite Air Allocation</div>
+            <div id="kpiExpediteUnits" class="text-base font-bold text-amber-400 mt-0.5">—</div>
+            <div id="kpiExpediteCost" class="text-[11px] text-slate-400">Air Freight: —</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="text-[11px] text-slate-400">Total PO Commitment</div>
+            <div id="kpiTotalSpend" class="text-base font-bold text-white mt-0.5">—</div>
+            <div id="kpiNetAtp" class="text-[11px] text-slate-400">Net ATP: —</div>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-xs leading-relaxed text-slate-200">
+          <div class="font-semibold text-cyan-400 mb-1">Executive S&amp;OP Replenishment Memo:</div>
+          <p id="executiveMemoText">Select one of the 4 preset SKUs on the left and click "Run 5-Agent S&amp;OP Replenishment Pipeline".</p>
+        </div>
+
+        <!-- HITL Override Panel (Shown when requires_human_review is True) -->
+        <div id="hitlPanel" class="hidden p-4 rounded-xl bg-rose-950/50 border border-rose-600/60 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-bold uppercase tracking-wider text-rose-300">
+              ⚠ Constitutional Article V — Mandatory Human-in-the-Loop (HITL) Code Stop
+            </div>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-200">ERP PO Blocked</span>
+          </div>
+          <p id="hitlReasonText" class="text-xs text-rose-200"></p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
+            <input id="overrideReviewer" value="VP Supply Chain (S&OP Chair)" placeholder="Reviewer Name" class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            <select id="overrideDecision" class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+              <option value="RELEASE_WITH_DUAL_SOURCE_AND_EXPEDITE">RELEASE_WITH_DUAL_SOURCE_AND_EXPEDITE</option>
+              <option value="AUTO_RELEASE_PO">AUTO_RELEASE_PO</option>
+              <option value="REJECT_AND_FREEZE_PROCUREMENT">REJECT_AND_FREEZE_PROCUREMENT</option>
+            </select>
+            <button onclick="submitHumanOverride()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold">
+              Apply Executive Override
+            </button>
+          </div>
+          <input id="overrideNotes" value="Approved emergency air expedite & working capital expansion to protect CloudTitan hyperscale SLA." class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200" />
+        </div>
+      </section>
+
+      <!-- Specialist Agent Cards -->
+      <section class="grid grid-cols-1 md:grid-cols-2 gap-4" id="agentCardsContainer"></section>
+
+      <!-- OpenTelemetry Spans & Audit Table -->
+      <section class="glass-card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-cyan-400">
+            OpenTelemetry Distributed Trace Spans &amp; Async Memory Telemetry
+          </h2>
+          <span id="memoryMetricsText" class="text-[11px] text-slate-400"></span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-2 pr-3">Span / Phase</th>
+                <th class="py-2 pr-3">Agent / Component</th>
+                <th class="py-2 pr-3">W3C Trace / Span ID</th>
+                <th class="py-2 pr-3">Latency</th>
+                <th class="py-2">Details (PII-Scrubbed)</th>
+              </tr>
+            </thead>
+            <tbody id="telemetryTableBody" class="divide-y divide-slate-800/60 text-slate-300"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Tool JSON Schema Modal -->
+  <div id="schemaModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">
+          Explicit Tool JSON Schemas &amp; Native LLM Function Declarations
+        </h3>
+        <button onclick="closeSchemaModal()" class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">
+          Close ✕
+        </button>
+      </div>
+      <pre id="schemaModalContent" class="p-4 overflow-y-auto text-[11px] text-emerald-300 bg-slate-950 font-mono"></pre>
+    </div>
+  </div>
+
+  <script>
+    let presetsCache = {};
+    let currentSub = null;
+    let activePlanId = null;
+
+    async function initDashboard() {
+      try {
+        const [presetsResp, healthResp] = await Promise.all([
+          fetch('/api/presets'),
+          fetch('/api/health')
+        ]);
+        presetsCache = await presetsResp.json();
+        const health = await healthResp.json();
+        document.getElementById('healthBadge').textContent = `● ${health.llm_provider}`;
+        loadPreset('sku_a_critical_asic');
+        refreshOtelSpans();
+      } catch (e) {
+        console.error('Init error:', e);
+      }
+    }
+
+    function loadPreset(key) {
+      const p = presetsCache[key];
+      if (!p) return;
+      currentSub = JSON.parse(JSON.stringify(p));
+      document.getElementById('f_sku_id').value = p.sku_id;
+      document.getElementById('f_plant_code').value = p.plant_code;
+      document.getElementById('f_sku_name').value = p.sku_name;
+      document.getElementById('f_on_hand').value = p.inventory.on_hand_units;
+      document.getElementById('f_allocated').value = p.inventory.allocated_units;
+      document.getElementById('f_pipeline').value = p.inventory.in_transit_units + p.inventory.open_po_units;
+      document.getElementById('f_demand_mean').value = p.demand.weekly_demand_mean;
+      document.getElementById('f_demand_std').value = p.demand.weekly_demand_std_dev;
+      document.getElementById('f_service_level').value = p.target_service_level;
+      document.getElementById('f_lead_time').value = p.supplier.lead_time_days_mean;
+      document.getElementById('f_otif').value = p.supplier.on_time_in_full_pct;
+      document.getElementById('f_budget').value = p.financials.working_capital_budget_usd;
+      document.getElementById('f_erp_notes').value = p.unstructured_erp_notes;
+    }
+
+    function buildSubmissionPayload() {
+      const sub = currentSub ? JSON.parse(JSON.stringify(currentSub)) : {};
+      sub.sku_id = document.getElementById('f_sku_id').value;
+      sub.plant_code = document.getElementById('f_plant_code').value;
+      sub.sku_name = document.getElementById('f_sku_name').value;
+      sub.target_service_level = parseFloat(document.getElementById('f_service_level').value);
+      sub.inventory.on_hand_units = parseInt(document.getElementById('f_on_hand').value, 10);
+      sub.inventory.allocated_units = parseInt(document.getElementById('f_allocated').value, 10);
+      sub.demand.weekly_demand_mean = parseFloat(document.getElementById('f_demand_mean').value);
+      sub.demand.weekly_demand_std_dev = parseFloat(document.getElementById('f_demand_std').value);
+      sub.supplier.lead_time_days_mean = parseFloat(document.getElementById('f_lead_time').value);
+      sub.supplier.on_time_in_full_pct = parseFloat(document.getElementById('f_otif').value);
+      sub.financials.working_capital_budget_usd = parseFloat(document.getElementById('f_budget').value);
+      sub.unstructured_erp_notes = document.getElementById('f_erp_notes').value;
+      return sub;
+    }
+
+    function resetSteps() {
+      for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById(`step${i}`);
+        el.classList.remove('step-active', 'step-done');
+        document.getElementById(`step${i}Status`).textContent = 'Running...';
+      }
+    }
+
+    async function executeSupplyPlan() {
+      const btn = document.getElementById('runPlanBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Executing 5-Agent S&OP Pipeline...';
+      resetSteps();
+
+      try {
+        const payload = buildSubmissionPayload();
+        const resp = await fetch('/api/planning/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        renderPlanResult(result);
+        refreshOtelSpans();
+      } catch (e) {
+        console.error('Execution failed:', e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ Run 5-Agent S&OP Replenishment Pipeline';
+      }
+    }
+
+    function renderPlanResult(res) {
+      activePlanId = res.plan_id;
+      document.getElementById('traceBadge').textContent = `Plan: ${res.plan_id} • W3C Trace: ${res.trace_id}`;
+
+      for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById(`step${i}`);
+        el.classList.remove('step-active');
+        el.classList.add('step-done');
+        document.getElementById(`step${i}Status`).textContent = '✓ Completed';
+      }
+
+      const d = res.final_decision;
+      const t = res.triage_output;
+      document.getElementById('tierBadge').textContent = `${t.sku_tier} • ABC/XYZ: ${t.abc_xyz_class}`;
+      document.getElementById('decisionTitle').textContent = `${d.decision_status} — ${res.submission.sku_id}`;
+      document.getElementById('compositeScoreDisplay').textContent = `${d.composite_risk_score} / 100 (${d.overall_risk_level})`;
+
+      document.getElementById('kpiSafetyStock').textContent = `${d.recommended_safety_stock_units.toLocaleString()} units`;
+      document.getElementById('kpiRop').textContent = `ROP: ${d.recommended_reorder_point_units.toLocaleString()} units`;
+      document.getElementById('kpiTotalOrder').textContent = `${d.recommended_order_qty_units.toLocaleString()} units`;
+      document.getElementById('kpiOrderSplit').textContent = `Primary: ${d.primary_supplier_order_units.toLocaleString()} | Backup: ${d.backup_supplier_order_units.toLocaleString()}`;
+      document.getElementById('kpiExpediteUnits').textContent = `${d.expedite_air_units.toLocaleString()} units`;
+      document.getElementById('kpiExpediteCost').textContent = `Air Freight: $${d.expedite_freight_cost_usd.toLocaleString()}`;
+      document.getElementById('kpiTotalSpend').textContent = `$${d.total_po_spend_usd.toLocaleString()}`;
+      document.getElementById('kpiNetAtp').textContent = `Net ATP: ${t.net_available_on_hand_units.toLocaleString()} units (${t.weeks_of_supply_on_hand} wks)`;
+
+      document.getElementById('executiveMemoText').textContent = d.executive_sop_memo;
+
+      const hitlPanel = document.getElementById('hitlPanel');
+      if (d.requires_human_review) {
+        hitlPanel.classList.remove('hidden');
+        document.getElementById('hitlReasonText').textContent = d.human_review_reason;
+      } else {
+        hitlPanel.classList.add('hidden');
+      }
+
+      // Render Triage + 3 Specialist Phase Cards
+      const container = document.getElementById('agentCardsContainer');
+      container.innerHTML = '';
+
+      const triageCard = `
+        <div class="glass-card rounded-2xl p-4 space-y-2 border-t-2 border-t-cyan-400">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-cyan-300">Phase 1 — Demand &amp; Inventory Triage Agent</span>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">Urgency: ${t.stockout_urgency_score}/100</span>
+          </div>
+          <p class="text-xs text-slate-300">${t.triage_rationale}</p>
+          <div class="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800 text-[11px] text-slate-400">
+            <strong class="text-slate-200">PII-Scrubbed ERP Log:</strong> ${t.sanitized_erp_notes}
+          </div>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', triageCard);
+
+      (res.phase_assessments || []).forEach(pa => {
+        const findingsHtml = (pa.key_findings || []).map(f => `<li>• ${f}</li>`).join('');
+        const actionsHtml = (pa.recommended_actions || []).map(a => `<li class="text-cyan-300">→ ${a}</li>`).join('');
+        const card = `
+          <div class="glass-card rounded-2xl p-4 space-y-2 border-t-2 border-t-blue-500">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-blue-300">${pa.phase_name}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-200">${pa.risk_score}/100 (${pa.risk_level})</span>
+            </div>
+            <p class="text-xs text-slate-300">${pa.llm_narrative}</p>
+            <ul class="text-[11px] text-slate-400 space-y-1">${findingsHtml}</ul>
+            <ul class="text-[11px] space-y-1 pt-1 border-t border-slate-800/80">${actionsHtml}</ul>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', card);
+      });
+
+      // Render pipeline telemetry events
+      const tbody = document.getElementById('telemetryTableBody');
+      tbody.innerHTML = '';
+      (res.telemetry_events || []).forEach(ev => {
+        const row = `
+          <tr>
+            <td class="py-2 pr-3 font-medium text-white">${ev.phase}</td>
+            <td class="py-2 pr-3 text-cyan-300">${ev.agent}</td>
+            <td class="py-2 pr-3 font-mono text-[11px] text-slate-400">${(ev.trace_id || '').slice(0, 12)}… / ${ev.span_id || ''}</td>
+            <td class="py-2 pr-3 text-emerald-400">${ev.latency_ms} ms</td>
+            <td class="py-2 text-slate-300">${ev.details}</td>
+          </tr>
+        `;
+        tbody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    async function submitHumanOverride() {
+      if (!activePlanId) return;
+      const reviewer_name = document.getElementById('overrideReviewer').value;
+      const override_decision = document.getElementById('overrideDecision').value;
+      const override_justification = document.getElementById('overrideNotes').value;
+
+      const resp = await fetch(`/api/plans/${activePlanId}/human-override`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewer_name, override_decision, override_justification })
+      });
+      if (resp.ok) {
+        const updated = await resp.json();
+        renderPlanResult(updated);
+      }
+    }
+
+    async function sendChat() {
+      const input = document.getElementById('chatInput');
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      const box = document.getElementById('chatBox');
+      box.insertAdjacentHTML('beforeend', `<div class="p-2 rounded-lg bg-cyan-950/50 border border-cyan-800/50 text-cyan-100"><strong>Planner:</strong> ${msg}</div>`);
+
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: 'web-sop-session', message: msg })
+      });
+      const data = await resp.json();
+      box.insertAdjacentHTML('beforeend', `<div class="p-2.5 rounded-lg bg-slate-900 text-slate-200 whitespace-pre-line"><strong class="text-cyan-400">${data.agent_name}:</strong>\n${data.reply}</div>`);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function openSchemaModal() {
+      const modal = document.getElementById('schemaModal');
+      const content = document.getElementById('schemaModalContent');
+      modal.classList.remove('hidden');
+      content.textContent = 'Loading explicit JSON schemas...';
+      const resp = await fetch('/api/tools/schemas');
+      const data = await resp.json();
+      content.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function closeSchemaModal() {
+      document.getElementById('schemaModal').classList.add('hidden');
+    }
+
+    async function refreshOtelSpans() {
+      try {
+        const resp = await fetch('/api/telemetry/spans?limit=12');
+        const data = await resp.json();
+        const m = data.memory_telemetry || {};
+        document.getElementById('memoryMetricsText').textContent =
+          `Async Writes: ${m.async_writes || 0} • Background Tasks Completed: ${m.background_writes_completed || 0} • Cache Hits: ${m.cache_hits || 0}`;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initDashboard);
+  </script>
+</body>
+</html>

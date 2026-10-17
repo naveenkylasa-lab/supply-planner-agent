@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  supply-planner-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: supply-planner-agent
+    ports:
+      - "8010:8010"
+    environment:
+      - ENVIRONMENT=production
+      - SQLITE_DB_PATH=/app/data/supply_planner_memory.db
+      - FAST_MODEL_NAME=gemini-2.0-flash
+      - DEEP_MODEL_NAME=gemini-1.5-pro
+      - OTEL_SERVICE_NAME=supply-planner-multi-agent
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+    volumes:
+      - supply_planner_data:/app/data
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    container_name: supply-planner-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infra/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    restart: unless-stopped
+
+volumes:
+  supply_planner_data:
